@@ -4,7 +4,7 @@ langchain-google-genai>=2.0.0
 langchain-pinecone
 langchain-community
 langchain-huggingface
-pinecone-client
+pinecone
 python-dotenv
 docx2txt
 sentence-transformers
