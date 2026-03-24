@@ -1,10 +1,9 @@
 import streamlit as st
 import os
 import glob
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.document_loaders import DirectoryLoader, Docx2txtLoader
 from langchain_pinecone import PineconeVectorStore
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pinecone import Pinecone
 
@@ -17,21 +16,16 @@ pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 st.title("🤖 Central Test AI Assistant")
 st.markdown("---")
 
-# Pinecone индекс (MiniLM ашиглах тул 384 dimension-той байх ёстой)
+# Pinecone индекс (Gemini Embedding 001 нь 768 dimension-той)
 index_name = "testai" 
 
-# 2. Моделиудыг ачаалах (Оновчтой хувилбар)
+# 2. Моделиудыг ачаалах (API-аар шууд холбогдоно)
 @st.cache_resource
 def load_models():
-    # Streamlit Cloud-д зориулсан хөнгөн, хурдан модель (384 dimensions)
-    model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    model_kwargs = {'device': 'cpu'}
-    encode_kwargs = {'normalize_embeddings': True}
-    
-    embeddings = HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs=model_kwargs,
-        encode_kwargs=encode_kwargs
+    # Таны хүссэн gemini-embedding-001 хувилбар
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-001",
+        google_api_key=google_api_key
     )
     
     pc = Pinecone(api_key=pinecone_api_key)
@@ -56,18 +50,19 @@ with st.sidebar:
             if not docx_files:
                 st.error("'data' хавтас дотор .docx файл олдсонгүй!")
             else:
-                with st.spinner("Баримтуудыг боловсруулж байна..."):
+                with st.spinner("Google Gemini-ээр өгөгдлийг индексжүүлж байна..."):
                     try:
                         loader = DirectoryLoader("data", glob="./*.docx", loader_cls=Docx2txtLoader)
                         docs = loader.load()
                         
                         splitter = RecursiveCharacterTextSplitter(
-                            chunk_size=700, 
-                            chunk_overlap=100,
+                            chunk_size=1000, 
+                            chunk_overlap=200,
                             separators=["\n\n", "\n", ".", " ", ""]
                         )
                         texts = splitter.split_documents(docs)
                         
+                        # Pinecone руу хадгалах
                         PineconeVectorStore.from_documents(
                             texts, 
                             embeddings, 
@@ -82,7 +77,7 @@ with st.sidebar:
 query = st.text_input("Асуултаа бичнэ үү:", placeholder="Мэдээллийн сангаас хайх...")
 
 if query:
-    with st.spinner("Мэдээллийг шинжилж байна..."):
+    with st.spinner("Шинжилж байна..."):
         try:
             vectorstore = PineconeVectorStore(
                 index_name=index_name, 
@@ -90,11 +85,13 @@ if query:
                 pinecone_api_key=pinecone_api_key
             )
             
+            # Хамгийн ойр 5 үр дүнг хайх
             search_results = vectorstore.similarity_search(query, k=5)
             context = "\n\n".join([doc.page_content for doc in search_results])
             
+            # Gemini-1.5-Flash ашиглан хариулт боловсруулах
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash", 
+                model="gemini-1.5-flash", 
                 google_api_key=google_api_key,
                 temperature=0.1
             )
@@ -110,14 +107,15 @@ if query:
             
             ЗААВАР:
             1. Зөвхөн өгөгдсөн мэдээллийг ашигла.
-            2. Хариултыг монгол хэлээр, эелдэг бич.
+            2. Мэдээлэлд байхгүй зүйлийг өөрөөсөө бүү зохио.
+            3. Хариултыг монгол хэлээр, маш эелдэг бичээрэй.
             """
             
             response = llm.invoke(prompt)
             st.markdown("### 🤖 Хариулт:")
             st.write(response.content)
             
-            with st.expander("Эх сурвалж"):
+            with st.expander("Эх сурвалж харах"):
                 st.info(context)
                 
         except Exception as e:
