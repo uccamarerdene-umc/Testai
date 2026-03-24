@@ -63,7 +63,7 @@ with st.sidebar:
                         texts = splitter.split_documents(docs)
                         
                         # --- BATCH PROCESSING (Quota алдаанаас зайлсхийх) ---
-                        batch_size = 30  # Нэг удаад 30 текст илгээнэ
+                        batch_size = 10  # Нэг удаад 10 текст илгээнэ
                         vectorstore = None
                         
                         progress_bar = st.progress(0)
