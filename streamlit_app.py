@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import glob
+import time  # Хугацаа хэмжих, амраахад хэрэгтэй
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.document_loaders import DirectoryLoader, Docx2txtLoader
 from langchain_pinecone import PineconeVectorStore
@@ -22,12 +23,11 @@ index_name = "testai"
 # 2. Моделиудыг ачаалах (API-аар шууд холбогдоно)
 @st.cache_resource
 def load_models():
-    # Таны хүссэн gemini-embedding-001 хувилбар
+    # Google Gemini Embedding-001
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
         google_api_key=google_api_key
     )
-    
     pc = Pinecone(api_key=pinecone_api_key)
     return embeddings, pc
 
@@ -50,7 +50,7 @@ with st.sidebar:
             if not docx_files:
                 st.error("'data' хавтас дотор .docx файл олдсонгүй!")
             else:
-                with st.spinner("Google Gemini-ээр өгөгдлийг индексжүүлж байна..."):
+                with st.spinner("Google Gemini-ээр өгөгдлийг хэсэгчлэн илгээж байна..."):
                     try:
                         loader = DirectoryLoader("data", glob="./*.docx", loader_cls=Docx2txtLoader)
                         docs = loader.load()
@@ -62,14 +62,40 @@ with st.sidebar:
                         )
                         texts = splitter.split_documents(docs)
                         
-                        # Pinecone руу хадгалах
-                        PineconeVectorStore.from_documents(
-                            texts, 
-                            embeddings, 
-                            index_name=index_name,
-                            pinecone_api_key=pinecone_api_key
-                        )
-                        st.success(f"Амжилттай! {len(texts)} хэсэг текстийг хадгаллаа.")
+                        # --- BATCH PROCESSING (Quota алдаанаас зайлсхийх) ---
+                        batch_size = 30  # Нэг удаад 30 текст илгээнэ
+                        vectorstore = None
+                        
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        for i in range(0, len(texts), batch_size):
+                            batch = texts[i:i + batch_size]
+                            status_text.text(f"Боловсруулж байна: {i}/{len(texts)} хэсэг...")
+                            
+                            if i == 0:
+                                # Эхний хэсэгт шинээр вектор сан үүсгэнэ
+                                vectorstore = PineconeVectorStore.from_documents(
+                                    batch, 
+                                    embeddings, 
+                                    index_name=index_name,
+                                    pinecone_api_key=pinecone_api_key
+                                )
+                            else:
+                                # Дараагийн хэсгүүдийг нэмж хадгална
+                                vectorstore.add_documents(batch)
+                            
+                            # Явцыг шинэчлэх
+                            progress = (i + len(batch)) / len(texts)
+                            progress_bar.progress(progress)
+                            
+                            # Google-ийн Rate Limit-д тусахгүйн тулд 10 секунд амраана
+                            if i + batch_size < len(texts):
+                                time.sleep(10)
+                        
+                        status_text.text("Синхрончлол дууслаа!")
+                        st.success(f"Амжилттай! Нийт {len(texts)} хэсэг текстийг хадгаллаа.")
+                        
                     except Exception as e:
                         st.error(f"Алдаа гарлаа: {e}")
 
@@ -77,7 +103,7 @@ with st.sidebar:
 query = st.text_input("Асуултаа бичнэ үү:", placeholder="Мэдээллийн сангаас хайх...")
 
 if query:
-    with st.spinner("Шинжилж байна..."):
+    with st.spinner("Хайж байна..."):
         try:
             vectorstore = PineconeVectorStore(
                 index_name=index_name, 
@@ -85,11 +111,9 @@ if query:
                 pinecone_api_key=pinecone_api_key
             )
             
-            # Хамгийн ойр 5 үр дүнг хайх
             search_results = vectorstore.similarity_search(query, k=5)
             context = "\n\n".join([doc.page_content for doc in search_results])
             
-            # Gemini-1.5-Flash ашиглан хариулт боловсруулах
             llm = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash", 
                 google_api_key=google_api_key,
@@ -108,7 +132,7 @@ if query:
             ЗААВАР:
             1. Зөвхөн өгөгдсөн мэдээллийг ашигла.
             2. Мэдээлэлд байхгүй зүйлийг өөрөөсөө бүү зохио.
-            3. Хариултыг монгол хэлээр, маш эелдэг бичээрэй.
+            3. Хариултыг монгол хэлээр, эелдэг бичээрэй.
             """
             
             response = llm.invoke(prompt)
