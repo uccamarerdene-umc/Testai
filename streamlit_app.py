@@ -94,7 +94,7 @@ if query:
             context = "\n\n".join([doc.page_content for doc in search_results])
             
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5 flash", 
+                model="gemini-2.5-flash", 
                 google_api_key=google_api_key,
                 temperature=0.1
             )
