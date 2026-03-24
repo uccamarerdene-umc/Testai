@@ -18,7 +18,7 @@ st.title("🤖 Central Test AI Assistant (BGE-M3)")
 st.markdown("---")
 
 # Pinecone индекс (1024 dimension-той байх ёстой)
-index_name = "central-test-bge" 
+index_name = "centralai" 
 
 # 2. Моделиудыг ачаалах (Cache ашиглана)
 @st.cache_resource
