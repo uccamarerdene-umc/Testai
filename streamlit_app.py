@@ -14,17 +14,17 @@ st.set_page_config(page_title="Central Test AI Assistant", page_icon="🤖")
 google_api_key = st.secrets.get("GOOGLE_API_KEY")
 pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 
-st.title("🤖 Central Test AI Assistant (BGE-M3)")
+st.title("🤖 Central Test AI Assistant")
 st.markdown("---")
 
-# Pinecone индекс (1024 dimension-той байх ёстой)
+# Pinecone индекс (MiniLM ашиглах тул 384 dimension-той байх ёстой)
 index_name = "testai" 
 
-# 2. Моделиудыг ачаалах (Cache ашиглана)
+# 2. Моделиудыг ачаалах (Оновчтой хувилбар)
 @st.cache_resource
 def load_models():
-    # Монгол хэлэнд зориулсан 1024 dimensions-той BGE-M3 модель
-    model_name = "BAAI/bge-m3"
+    # Streamlit Cloud-д зориулсан хөнгөн, хурдан модель (384 dimensions)
+    model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     model_kwargs = {'device': 'cpu'}
     encode_kwargs = {'normalize_embeddings': True}
     
@@ -48,7 +48,6 @@ embeddings, pc = load_models()
 with st.sidebar:
     st.header("⚙️ Тохиргоо")
     if st.button("🔄 Өгөгдөл Синхрончлох"):
-        # Жижиг 'data' хавтас байгаа эсэхийг шалгах, байхгүй бол үүсгэх
         if not os.path.exists("data"):
             os.makedirs("data")
             st.warning("'data' хавтас олдсонгүй, шинээр үүсгэлээ. Дотор нь .docx файлуудаа хийнэ үү.")
@@ -57,21 +56,18 @@ with st.sidebar:
             if not docx_files:
                 st.error("'data' хавтас дотор .docx файл олдсонгүй!")
             else:
-                with st.spinner("Баримтуудыг боловсруулж байна (BGE-M3)..."):
+                with st.spinner("Баримтуудыг боловсруулж байна..."):
                     try:
-                        # DirectoryLoader-г жижиг 'data' хавтастай холбох
                         loader = DirectoryLoader("data", glob="./*.docx", loader_cls=Docx2txtLoader)
                         docs = loader.load()
                         
-                        # Текстийг монгол хэлний онцлогт тохируулж хуваах
                         splitter = RecursiveCharacterTextSplitter(
-                            chunk_size=800, 
-                            chunk_overlap=150,
+                            chunk_size=700, 
+                            chunk_overlap=100,
                             separators=["\n\n", "\n", ".", " ", ""]
                         )
                         texts = splitter.split_documents(docs)
                         
-                        # Pinecone руу илгээх
                         PineconeVectorStore.from_documents(
                             texts, 
                             embeddings, 
@@ -83,3 +79,46 @@ with st.sidebar:
                         st.error(f"Алдаа гарлаа: {e}")
 
 # 4. Chat Interface
+query = st.text_input("Асуултаа бичнэ үү:", placeholder="Мэдээллийн сангаас хайх...")
+
+if query:
+    with st.spinner("Мэдээллийг шинжилж байна..."):
+        try:
+            vectorstore = PineconeVectorStore(
+                index_name=index_name, 
+                embedding=embeddings,
+                pinecone_api_key=pinecone_api_key
+            )
+            
+            search_results = vectorstore.similarity_search(query, k=5)
+            context = "\n\n".join([doc.page_content for doc in search_results])
+            
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash", 
+                google_api_key=google_api_key,
+                temperature=0.1
+            )
+            
+            prompt = f"""
+            Та бол Central Test компанийн AI туслах байна. 
+            Доорх мэдээлэл дээр тулгуурлан асуултанд маш дэлгэрэнгүй хариул.
+            
+            Мэдээлэл:
+            {context}
+            
+            Асуулт: {query}
+            
+            ЗААВАР:
+            1. Зөвхөн өгөгдсөн мэдээллийг ашигла.
+            2. Хариултыг монгол хэлээр, эелдэг бич.
+            """
+            
+            response = llm.invoke(prompt)
+            st.markdown("### 🤖 Хариулт:")
+            st.write(response.content)
+            
+            with st.expander("Эх сурвалж"):
+                st.info(context)
+                
+        except Exception as e:
+            st.error(f"Алдаа: {e}")
