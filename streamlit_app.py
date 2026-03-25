@@ -143,7 +143,7 @@ with st.sidebar:
                         st.error(f"Алдаа: {e}")
 
 # 4. Chat Interface
-query = st.text_input("Асуултаа бичнэ үү:", placeholder="Жишээ нь: Компанийн амралтын журам ямар байдаг вэ?")
+query = st.text_input("Асуултаа бичнэ үү:", placeholder="Жишээ нь: Central Test сонгон шалгаруулалтд хэрхэн ашиглах вэ?")
 
 if query:
     with st.spinner("Мэдээлэл дуудаж байна..."):
