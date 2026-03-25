@@ -70,8 +70,8 @@ st.markdown("""
 google_api_key = st.secrets.get("GOOGLE_API_KEY")
 pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 
-st.title("🤖 Central Test AI Assistant")
-st.markdown("<p style='color: #64748B;'>Байгууллагын дотоод мэдээллийн сангаас хайлт хийх ухаалаг туслах</p>", unsafe_allow_html=True)
+st.title("🤖 Central Test AI туслах")
+st.markdown("<p style='color: #64748B;'>Central test олон улсын сэтгэл зүйн тестийг ашиглахад зориулсан ухаалаг туслах</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 index_name = "testai" 
@@ -165,7 +165,7 @@ if query:
             
             prompt = f"""
             Та бол Central Test компанийн AI туслах байна. 
-            Доорх мэдээлэл дээр тулгуурлан асуултанд маш дэлгэрэнгүй хариул.
+            Доорх мэдээлэл дээр тулгуурлан, central test ашиглах гэж буй байгууллага, хүний нөөцийн менежерүүдэд зориулан академик түвшинд асуултанд маш дэлгэрэнгүй хариул.
             
             Мэдээлэл:
             {context}
@@ -174,7 +174,7 @@ if query:
             
             ЗААВАР:
             1. Зөвхөн өгөгдсөн мэдээллийг ашигла.
-            2. Хариултыг монгол хэлээр, маш эелдэг, цэгцтэй бичээрэй.
+            2. Хариултыг монгол хэлээр, маш эелдэг, цэгцтэй, академик бичээрэй.
             """
             
             response = llm.invoke(prompt)
