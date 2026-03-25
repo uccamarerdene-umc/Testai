@@ -93,7 +93,7 @@ embeddings, pc = load_models()
 
 # 3. Sidebar - Өгөгдөл удирдах (Sync)
 with st.sidebar:
-    st.header("⚙️ Тохиргоо")
+    st.header("⚙️ Хайлтын түүх")
     if st.button("🔄 Хариултыг бэлтгэж байна"):
         if not os.path.exists("data"):
             os.makedirs("data")
