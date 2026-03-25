@@ -185,9 +185,6 @@ if query:
                     {response.content}
                 </div>
             """, unsafe_allow_html=True)
-            
-            with st.expander("🔍 Ашигласан эх сурвалж"):
-                st.info(context)
-                
+                 
         except Exception as e:
             st.error(f"Алдаа: {e}")
