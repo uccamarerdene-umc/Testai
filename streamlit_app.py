@@ -28,18 +28,24 @@ if not google_api_key or not pinecone_api_key:
 genai.configure(api_key=google_api_key)
 pc = Pinecone(api_key=pinecone_api_key)
 
-# ---------------- CSS (FIGMA STYLE) ----------------
+# ---------------- CSS ----------------
 st.markdown("""
 <style>
+
 body {
     background-color: #F5F7FB;
     font-family: 'Inter', sans-serif;
 }
 
-.block-container {
-    padding: 1rem 2rem;
+/* LEFT PANEL */
+.left-panel {
+    background-color: white;
+    padding: 20px;
+    border-radius: 16px;
+    height: 100%;
 }
 
+/* CHAT CARD */
 .chat-card {
     background-color: white;
     padding: 24px;
@@ -48,15 +54,30 @@ body {
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
+/* BUTTON */
 .stButton>button {
     background-color: #F97316;
     color: white;
     border-radius: 12px;
 }
 
+/* INPUT */
 input {
     border-radius: 12px !important;
 }
+
+/* HISTORY ITEM */
+.history-item {
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.history-item:hover {
+    background-color: #F1F5F9;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -165,20 +186,26 @@ with st.sidebar:
 
                     st.success(f"✅ Sync done: {len(docs)} chunks")
 
-# ---------------- LAYOUT ----------------
+# ---------------- MAIN LAYOUT ----------------
 col1, col2, col3 = st.columns([1, 3, 1])
 
 # -------- LEFT PANEL --------
 with col1:
+    st.markdown('<div class="left-panel">', unsafe_allow_html=True)
+
     st.markdown("## Central Test AI")
+
     st.button("➕ Start New Assessment")
 
     st.markdown("### Research History")
-    st.markdown("Assessment Design Principles  \nToday")
-    st.markdown("Cognitive Load Theory  \nToday")
-    st.markdown("Standardized Testing  \nYesterday")
 
-# -------- CENTER CHAT --------
+    st.markdown('<div class="history-item">Assessment Design Principles<br><small>Today</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="history-item">Cognitive Load Theory<br><small>Today</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="history-item">Standardized Testing Validity<br><small>Yesterday</small></div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# -------- CENTER --------
 with col2:
 
     query = st.text_input("Ask Central Test AI...")
@@ -207,23 +234,6 @@ with col2:
 
                     prompt = f"""
 Чи бол Central Test компанийн AI туслах.
-ЗОРИЛГО:
-Доорх мэдээлэлд үндэслэн өндөр чанартай, логиктой, мэргэжлийн, академик түвшиний  хариулт өгөх.
-Монгол хэлний найруулга, зөв бичгийн дүрэм хэл зүйн алдаа гаргахгүй байх
-Монголын байгууллагын хүний нөөцийн менежер мэргэжилтэнүүд зэрэгт зориулан мэргэжлийн түвшиний хариулт өгөх
-
-ДҮРЭМ:
-1. Зөвхөн доорх мэдээлэлд тулгуурлана
-2. Өөрөөсөө зохиож болохгүй
-3. Хэрэв мэдээлэл байхгүй бол: "Мэдээлэл алга"
-4. Хариултыг:
-   - Эхлээд товч
-   - Дараа нь дэлгэрэнгүй тайлбар
-   - Хэрэв боломжтой бол bullet point ашигла
-5. Монгол хэлээр, маш ойлгомжтой бич
-
-
-Зөвхөн доорх мэдээлэлд тулгуурлан хариулах бөгөөд .
 
 Мэдээлэл:
 {context}
@@ -232,18 +242,17 @@ with col2:
 {query}
 """
 
-                    # -------- STREAMING RESPONSE --------
                     st.markdown('<div class="chat-card">', unsafe_allow_html=True)
 
-                    response_placeholder = st.empty()
+                    placeholder = st.empty()
                     full_text = ""
 
                     response = model.generate_content(prompt)
 
-                    for chunk in stream:
-                        if chunk.text:
-                            full_text += chunk.text
-                            response_placeholder.markdown(full_text)
+                    for char in response.text:
+                        full_text += char
+                        placeholder.markdown(full_text)
+                        time.sleep(0.003)
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
