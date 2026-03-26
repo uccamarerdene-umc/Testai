@@ -59,7 +59,7 @@ if not google_api_key or not pinecone_api_key:
 def load_models():
     # task_type нь хайлтын чанарыг сайжруулна
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-001",
+        model="models/embedding-001",
         google_api_key=google_api_key,
         task_type="retrieval_document"
     )
