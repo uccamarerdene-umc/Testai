@@ -30,17 +30,19 @@ pc = Pinecone(api_key=pinecone_api_key)
 
 # ---------------- EMBEDDING (SAFE) ----------------
 def embed_text(text):
-    for _ in range(5):  # retry
+    for _ in range(5):
         try:
-            return genai.embed_content(
+            res = genai.embed_content(
                 model="models/gemini-embedding-001",
                 content=text
-            )["embedding"]
+            )
+            return res["embedding"]
         except Exception as e:
             if "429" in str(e) or "ResourceExhausted" in str(e):
                 time.sleep(10 + random.random()*5)
             else:
                 raise e
+    return None  # fallback
 
 # ---------------- CLEAN ----------------
 def clean_text(text):
@@ -51,10 +53,7 @@ def clean_text(text):
 
 # ---------------- CHUNK ----------------
 def split_text(text, chunk_size=800):
-    chunks = []
-    for i in range(0, len(text), chunk_size):
-        chunks.append(text[i:i+chunk_size])
-    return chunks
+    return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
 
 # ---------------- LOAD DOCX ----------------
 def load_docx():
@@ -64,9 +63,7 @@ def load_docx():
         text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
         text = clean_text(text)
 
-        chunks = split_text(text)
-
-        for chunk in chunks:
+        for chunk in split_text(text):
             docs.append({"text": chunk, "source": file})
 
     return docs
@@ -95,27 +92,35 @@ with st.sidebar:
                             metric="cosine",
                             spec=ServerlessSpec(cloud="aws", region="us-east-1")
                         )
-                        time.sleep(5)
+
+                        # wait until ready
+                        while not pc.describe_index(index_name).status["ready"]:
+                            time.sleep(2)
 
                     index = pc.Index(index_name)
 
-                    batch_size = 5
+                    batch_size = 2
                     vectors = []
 
                     for i, doc in enumerate(docs):
 
                         emb = embed_text(doc["text"])
+                        if emb is None:
+                            continue
 
                         vectors.append({
                             "id": f"id-{i}",
                             "values": emb,
-                            "metadata": doc
+                            "metadata": {
+                                "text": doc["text"][:500],  # 🔥 FIX
+                                "source": doc["source"]
+                            }
                         })
 
                         if len(vectors) == batch_size:
                             index.upsert(vectors=vectors)
                             vectors = []
-                            time.sleep(5)  # rate limit хамгаална
+                            time.sleep(5)
 
                     if vectors:
                         index.upsert(vectors=vectors)
@@ -133,6 +138,9 @@ if query:
             index = pc.Index(index_name)
 
             query_vector = embed_text(query)
+            if query_vector is None:
+                st.error("Embedding failed")
+                st.stop()
 
             results = index.query(
                 vector=query_vector,
@@ -174,4 +182,6 @@ if query:
                         st.write(m["metadata"]["source"])
 
         except Exception as e:
+            import traceback
             st.error(str(e))
+            st.code(traceback.format_exc())
