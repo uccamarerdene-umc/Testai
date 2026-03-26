@@ -4,23 +4,18 @@ import os
 import glob
 import time
 import unicodedata
+import random
 
 from docx import Document as DocxReader
 from pinecone import Pinecone, ServerlessSpec
 import google.generativeai as genai
 
 # ---------------- CONFIG ----------------
-st.set_page_config(
-    page_title="Central Test AI Assistant",
-    page_icon="🤖",
-    layout="wide"
-)
+st.set_page_config(page_title="Central Test AI", page_icon="🤖")
 
 def get_key(name):
     val = st.secrets.get(name)
-    if val:
-        return str(val).replace('—', '-').strip()
-    return None
+    return str(val).strip() if val else None
 
 google_api_key = get_key("GOOGLE_API_KEY")
 pinecone_api_key = get_key("PINECONE_API_KEY")
@@ -33,32 +28,50 @@ if not google_api_key or not pinecone_api_key:
 genai.configure(api_key=google_api_key)
 pc = Pinecone(api_key=pinecone_api_key)
 
-# ---------------- EMBEDDING ----------------
+# ---------------- EMBEDDING (SAFE) ----------------
 def embed_text(text):
-    return genai.embed_content(
-        model="models/gemini-embedding-001",
-        content=text
-    )["embedding"]
+    for _ in range(5):  # retry
+        try:
+            return genai.embed_content(
+                model="models/gemini-embedding-001",
+                content=text
+            )["embedding"]
+        except Exception as e:
+            if "429" in str(e) or "ResourceExhausted" in str(e):
+                time.sleep(10 + random.random()*5)
+            else:
+                raise e
 
-# ---------------- CLEAN TEXT ----------------
+# ---------------- CLEAN ----------------
 def clean_text(text):
     if not text:
         return ""
     text = unicodedata.normalize("NFKC", text)
     return "".join(c for c in text if unicodedata.category(c)[0] != 'C' or c in '\n\r\t')
 
+# ---------------- CHUNK ----------------
+def split_text(text, chunk_size=800):
+    chunks = []
+    for i in range(0, len(text), chunk_size):
+        chunks.append(text[i:i+chunk_size])
+    return chunks
+
 # ---------------- LOAD DOCX ----------------
 def load_docx():
     docs = []
     for file in glob.glob("data/*.docx"):
         doc = DocxReader(file)
-
         text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-        docs.append({"text": clean_text(text), "source": file})
+        text = clean_text(text)
+
+        chunks = split_text(text)
+
+        for chunk in chunks:
+            docs.append({"text": chunk, "source": file})
 
     return docs
 
-# ---------------- SIDEBAR SYNC ----------------
+# ---------------- SYNC ----------------
 with st.sidebar:
     st.header("⚙️ Sync")
     pwd = st.text_input("Password", type="password")
@@ -73,44 +86,41 @@ with st.sidebar:
             else:
                 with st.spinner("Uploading..."):
 
-                    # recreate index
-                    if index_name in [i["name"] for i in pc.list_indexes()]:
-                        pc.delete_index(index_name)
+                    # create index if not exists
+                    existing = [i["name"] for i in pc.list_indexes()]
+                    if index_name not in existing:
+                        pc.create_index(
+                            name=index_name,
+                            dimension=768,
+                            metric="cosine",
+                            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+                        )
                         time.sleep(5)
-
-                    pc.create_index(
-                        name=index_name,
-                        dimension=768,
-                        metric="cosine",
-                        spec=ServerlessSpec(cloud="aws", region="us-east-1")
-                    )
 
                     index = pc.Index(index_name)
 
-                    batch_size = 20
+                    batch_size = 5
                     vectors = []
 
                     for i, doc in enumerate(docs):
+
                         emb = embed_text(doc["text"])
 
                         vectors.append({
                             "id": f"id-{i}",
                             "values": emb,
-                            "metadata": {
-                                "text": doc["text"],
-                                "source": doc["source"]
-                            }
+                            "metadata": doc
                         })
 
                         if len(vectors) == batch_size:
                             index.upsert(vectors=vectors)
                             vectors = []
-                            time.sleep(2)
+                            time.sleep(5)  # rate limit хамгаална
 
                     if vectors:
                         index.upsert(vectors=vectors)
 
-                    st.success("Sync completed!")
+                    st.success(f"✅ Sync done: {len(docs)} chunks")
 
 # ---------------- UI ----------------
 st.title("🤖 Central Test AI")
@@ -151,7 +161,7 @@ if query:
 {query}
 
 Хэрэв мэдээлэл байхгүй бол:
-"Мэдээлэл алга" гэж хариул.
+"Мэдээлэл алга"
 """
 
                 response = model.generate_content(prompt)
