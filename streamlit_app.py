@@ -28,21 +28,31 @@ if not google_api_key or not pinecone_api_key:
 genai.configure(api_key=google_api_key)
 pc = Pinecone(api_key=pinecone_api_key)
 
-# ---------------- EMBEDDING (SAFE) ----------------
+# ---------------- EMBEDDING (SAFE FINAL) ----------------
 def embed_text(text):
+    text = text[:8000]  # 🔥 хэт урт текстээс хамгаална
+
+    last_error = None
+
     for _ in range(5):
         try:
             res = genai.embed_content(
                 model="models/gemini-embedding-001",
                 content=text
             )
-            return res["embedding"]
+
+            if "embedding" in res:
+                return res["embedding"]
+
         except Exception as e:
+            last_error = e
+
             if "429" in str(e) or "ResourceExhausted" in str(e):
                 time.sleep(10 + random.random()*5)
             else:
-                raise e
-    return None  # fallback
+                time.sleep(2)
+
+    raise Exception(f"Embedding failed: {last_error}")
 
 # ---------------- CLEAN ----------------
 def clean_text(text):
@@ -83,19 +93,21 @@ with st.sidebar:
             else:
                 with st.spinner("Uploading..."):
 
-                    # create index if not exists
+                    # 🔥 INDEX RESET (dimension mismatch засна)
                     existing = [i["name"] for i in pc.list_indexes()]
-                    if index_name not in existing:
-                        pc.create_index(
-                            name=index_name,
-                            dimension=3072,
-                            metric="cosine",
-                            spec=ServerlessSpec(cloud="aws", region="us-east-1")
-                        )
+                    if index_name in existing:
+                        pc.delete_index(index_name)
+                        time.sleep(5)
 
-                        # wait until ready
-                        while not pc.describe_index(index_name).status["ready"]:
-                            time.sleep(2)
+                    pc.create_index(
+                        name=index_name,
+                        dimension=3072,  # 🔥 gemini embedding тохирно
+                        metric="cosine",
+                        spec=ServerlessSpec(cloud="aws", region="us-east-1")
+                    )
+
+                    while not pc.describe_index(index_name).status["ready"]:
+                        time.sleep(2)
 
                     index = pc.Index(index_name)
 
@@ -105,14 +117,12 @@ with st.sidebar:
                     for i, doc in enumerate(docs):
 
                         emb = embed_text(doc["text"])
-                        if emb is None:
-                            continue
 
                         vectors.append({
                             "id": f"id-{i}",
                             "values": emb,
                             "metadata": {
-                                "text": doc["text"][:500],  # 🔥 FIX
+                                "text": doc["text"][:500],  # 🔥 Pinecone limit
                                 "source": doc["source"]
                             }
                         })
@@ -138,9 +148,6 @@ if query:
             index = pc.Index(index_name)
 
             query_vector = embed_text(query)
-            if query_vector is None:
-                st.error("Embedding failed")
-                st.stop()
 
             results = index.query(
                 vector=query_vector,
