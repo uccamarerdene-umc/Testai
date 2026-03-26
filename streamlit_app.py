@@ -193,15 +193,15 @@ col1, col2, col3 = st.columns([1, 3, 1])
 with col1:
     st.markdown('<div class="left-panel">', unsafe_allow_html=True)
 
-    st.markdown("## Central Test AI")
+    st.markdown("## Central Test AI туслах")
 
-    st.button("➕ Start New Assessment")
+    st.button("➕ Central Test Хиймэл оюун ухаант туслах гэж юу вэ?")
 
     st.markdown("### Research History")
 
-    st.markdown('<div class="history-item">Assessment Design Principles<br><small>Today</small></div>', unsafe_allow_html=True)
-    st.markdown('<div class="history-item">Cognitive Load Theory<br><small>Today</small></div>', unsafe_allow_html=True)
-    st.markdown('<div class="history-item">Standardized Testing Validity<br><small>Yesterday</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="history-item">Шинжлэх ухаанаар баталгаажсан сэтгэл зүйн тест<br><small>Today</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="history-item">Олон улсын стандартаар баталгаажсан сэтгэл зүйн тест<br><small>Today</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="history-item">Технологид суурилсан ухаалаг шийдэл<br><small>Yesterday</small></div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -263,5 +263,5 @@ with col2:
 
 # -------- RIGHT PANEL --------
 with col3:
-    st.markdown("### Document Preview")
-    st.info("Document preview panel")
+    st.markdown("### Central Test хиймэл оюун ухаант туслахыг хэрхэн ашиглах вэ?")
+    st.info("Тестийн үр дүнг хэрэглээнд нэвтрүүлэх боломж")
