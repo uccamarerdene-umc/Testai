@@ -238,7 +238,7 @@ with col2:
                     response_placeholder = st.empty()
                     full_text = ""
 
-                    stream = model.generate_content_stream(prompt)
+                    response = model.generate_content(prompt)
 
                     for chunk in stream:
                         if chunk.text:
