@@ -54,7 +54,7 @@ if not google_api_key or not pinecone_api_key:
 @st.cache_resource
 def load_models():
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-004",
+        model="models/embedding-002",
         google_api_key=google_api_key
     )
     return embeddings
