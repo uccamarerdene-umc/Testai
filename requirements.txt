@@ -1,10 +1,10 @@
 streamlit
-langchain
-langchain-google-genai>=2.0.0
-langchain-pinecone
+langchain-google-genai
 langchain-community
-langchain-huggingface
-pinecone
+langchain-pinecone
+langchain-core
+pinecone-client
+python-docx
+pandas
+openpyxl
 python-dotenv
-docx2txt
-sentence-transformers
