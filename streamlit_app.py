@@ -162,7 +162,7 @@ if query:
             else:
                 context = "\n\n".join([m["metadata"]["text"] for m in matches])
 
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel("gemini-2.5-flash")
 
                 prompt = f"""
 Чи бол Central Test компанийн AI туслах.
